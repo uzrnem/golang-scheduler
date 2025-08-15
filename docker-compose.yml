@@ -1,0 +1,69 @@
+version: '3.7'
+
+services:
+  # Dev profile: Use Golang container for live code mounting
+  scheduler:
+    image: golang:1.23.11-alpine3.22
+    container_name: scheduler
+    working_dir: /app
+    volumes:
+      - $PWD:/app
+    ports:
+      - "8080:8080"
+    command: "tail -f /dev/null" # ["go", "run", "main.go"]
+    networks:
+      - tasks
+    profiles: ["dev"]
+
+  # Test profile: Build Golang project as a Docker image
+  scheduler-service:
+    build: .
+    container_name: scheduler-service
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5434
+      DB_USER: postgres
+      DB_PASSWORD: changeme
+      DB_NAME: postgres
+    ports:
+      - "8080:8080"
+    networks:
+      - tasks
+    profiles: ["test"]
+
+  postgres:
+    container_name: taskdb
+    image: postgres:18beta1-alpine3.22
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGPORT: 5434
+    volumes:
+      - ./documents/postgres_db:/postgresql/data
+      - ./documents/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - 5434:5434
+    networks:
+      - tasks
+
+  pgadmin:
+    container_name: taskui
+    image: dpage/pgadmin4:2025-06-25-1
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin4@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    volumes:
+      - ./documents/pgadmin:/root/.pgadmin
+    ports:
+      - 8005:80
+    networks:
+      - tasks
+
+networks:
+  tasks:
+    driver: bridge

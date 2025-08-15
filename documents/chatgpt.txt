@@ -1,0 +1,51 @@
+RAW
+
+write golang project using echo framework using postgres as database, here will have two apis, to save task and get task
+
+schema will have are as follows 
+task schema will have id as uuid, name as string, url as string, starts_at as timestamp, frequency as integer, unit as string, last_run_at as timestamp,created_at as timestamp, updatedA_at as timestamp
+execution schema will have taskId as uuid, started_at as timestamp, status as string, status_code as int, response as string
+
+here will also have one scheduler which will trigger after 10 mins each, 
+then it will hit db with query select * from task where starts_at > now() 
+which ever records are fetched from database, 
+will make entry in execution table with task_id and current time as started_at, status as started 
+will update task entry with last_run_at as current time 
+then will hit api using task's url and according to response will update execution table
+
+
+REFINED
+
+write golang microservice using echo framework using postgres as database, will have rest apis, scheduler 
+
+> schema are as follows 
+1. Service schema will have id as uuid, name as string, token as string, created_at as timestamp, updated_at as timestamp
+2. task schema will have id as uuid, service_id as uuid, name as string, url as string, method as string, header as hstore, payload as text, scheduled_at as timestamp, frequency as integer, unit as string, created_at as timestamp, updated_at as timestamp
+3. execution schema will have task_id as uuid, status as string, status_code as int, response as string, created_at as timestamp 
+
+unit in task table can be hour or day
+frequency in task table must be more than zero integer
+
+> here will also have one scheduler which will trigger after 10 mins each, 
+then it will hit db with query `select * from task where scheduled_at <= now()`
+which ever records are fetched from database, 
+will make entry in execution table with task_id and current time as started_at, status as started 
+will update task entry with scheduled_at as current time + ( frequency in terms of unit )
+then will hit api using task's url, payload, headers and according to response will update execution table
+
+> API's
+1. POST /tasks create new task with service_id from header, name, url, method, header, payload, scheduled_at, frequency, unit from request body
+will check token against service_id, with other validation for creating record, scheduled_at can be null
+if null then scheduled_at will be current time + ( frequency in terms of unit )
+2. GET /tasks with service_id from header, will check token against service_id and return tasks of his services
+3. GET /tasks/taskId with service_id from header, will check token against service_id and return task by id matching serviceId too in database
+4. GET /task/taskId/executions with service_id from header, will check token against service_id and return task's executions last 5 by matching serviceId and taskId in database
+
+
+Improvement
+1. Yes give me migration script,
+ Task schema will have addition method column, 
+ getTaskExecutions api will return last records only by default, along will total count, 
+ provide pagination for same, allow pagenumber (default 0) and count(default 10) field in query params
+
+2. can you create dashboard for same, on login user will provide service id and token then he can access everything
