@@ -8,6 +8,13 @@ services:
     working_dir: /app
     volumes:
       - $PWD:/app
+    environment:
+      DB_HOST: taskdb
+      DB_PORT: 5434
+      DB_USER: postgres
+      DB_PASSWORD: changeme
+      DB_NAME: postgres
+      DB_SSLMODE: disable
     ports:
       - "8080:8080"
     command: "tail -f /dev/null" # ["go", "run", "main.go"]
@@ -22,11 +29,12 @@ services:
     depends_on:
       - postgres
     environment:
-      DB_HOST: postgres
+      DB_HOST: taskdb
       DB_PORT: 5434
       DB_USER: postgres
       DB_PASSWORD: changeme
       DB_NAME: postgres
+      DB_SSLMODE: disable
     ports:
       - "8080:8080"
     networks:

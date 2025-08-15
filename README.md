@@ -78,20 +78,20 @@ Body:
 ### List Tasks
 GET /tasks  
 Headers:
-  service_id: <uuid>  
-  token: <string>
+  service_id: `uuid`
+  token: `string`
 
 ### Get Task by ID
 GET /tasks/{taskId}  
 Headers:
-  service_id: <uuid>  
-  token: <string>
+  service_id: `uuid`
+  token: `string`
 
 ### Get Task Executions (paginated)
 GET /tasks/{taskId}/executions?pageNumber=0&count=10  
 Headers:
-  service_id: <uuid>  
-  token: <string>
+  service_id: `uuid`
+  token: `string`
 
 ## Scheduler Behavior
 
