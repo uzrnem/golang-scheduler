@@ -1,28 +1,428 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Task Scheduler Dashboard</title>
-    <link rel="stylesheet" href="/dashboard/style.css">
+  <meta charset="utf-8" />
+  <title>Scheduler Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f17; --card: #121826; --muted: #9aa4b2; --text: #e6e8eb;
+      --ok: #23c55e; --warn: #f59e0b; --fail: #ef4444; --accent: #6ea8fe;
+      --border: #22304a; --link: #7aa2ff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 14px/1.45 ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif; }
+    header { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+    header h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: .3px; }
+    .wrap { padding: 22px; display: grid; gap: 18px; grid-template-columns: 360px 1fr; align-items: start; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 6px 0 6px; }
+    input, select, button { width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: #0e1422; color: var(--text); }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn { cursor: pointer; font-weight: 600; background: #142135; border-color: #283753; }
+    .btn:hover { background: #182a47; }
+    .btn-primary { background: #274b8a; border-color: #355fa7; }
+    .btn-primary:hover { background: #2f5ca6; }
+    .muted { color: var(--muted); }
+    .flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .tasks { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+    .task-item { padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .task-item:last-child { border-bottom: 0; }
+    .task-item.active { background: #172134; }
+    .task-name { font-weight: 600; }
+    .task-sub { font-size: 12px; color: var(--muted); margin-top: 2px; word-break: break-all; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .pill.ok { background: #0d2c1a; color: var(--ok); border: 1px solid #174d2b; }
+    .pill.warn { background: #2b240b; color: var(--warn); border: 1px solid #5f4d14; }
+    .pill.fail { background: #2e1212; color: var(--fail); border: 1px solid #5a2323; }
+    .pill.started { background: #132435; color: #7ab2ff; border: 1px solid #28486f; }
+    .toolbar { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 8px; }
+    .pagination { display: flex; gap: 8px; align-items: center; }
+    .small { font-size: 12px; }
+    pre.response { margin: 0; white-space: pre-wrap; word-wrap: break-word; max-height: 140px; overflow: auto; color: #c9d1d9; }
+    a.link { color: var(--link); text-decoration: none; }
+    a.link:hover { text-decoration: underline; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    @media (max-width: 1000px) { .wrap { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
-<div id="login-page">
-    <h2>Login</h2>
-    <input type="text" id="serviceId" placeholder="Service ID">
-    <input type="text" id="token" placeholder="Token">
-    <button onclick="login()">Login</button>
-</div>
+  <header>
+    <h1>Golang Scheduler — Dashboard</h1>
+  </header>
 
-<div id="dashboard" style="display:none;">
-    <h2>Dashboard</h2>
-    <button onclick="logout()">Logout</button>
-    <h3>Tasks</h3>
-    <button onclick="showCreateTask()">+ Create Task</button>
-    <div id="task-list"></div>
-    <div id="task-detail"></div>
-    <div id="execution-list"></div>
-</div>
+  <div class="wrap">
+    <!-- Left column -->
+    <div class="left">
+      <div class="card">
+        <h3>Login</h3>
+        <label for="service_id">Service ID</label>
+        <input id="service_id" placeholder="uuid…" autocomplete="off" />
+        <label for="token">Token</label>
+        <input id="token" placeholder="secret token…" type="password" autocomplete="off" />
+        <div class="row" style="margin-top:10px;">
+          <button class="btn-primary" id="btn-login">Save & Load</button>
+          <button class="btn" id="btn-logout">Clear</button>
+        </div>
+        <div class="hint">Values are stored locally in your browser (localStorage).</div>
+      </div>
 
-<script src="/dashboard/app.js"></script>
+      <div class="card">
+        <h3>Your Tasks</h3>
+        <div class="toolbar">
+          <div class="flex small">
+            <span class="muted">Click a task to view executions</span>
+          </div>
+          <button class="btn" id="btn-refresh-tasks">Refresh</button>
+        </div>
+        <div class="tasks" id="tasks"></div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="right">
+      <div class="card">
+        <h3 class="flex" style="justify-content:space-between;">
+          <span>Executions <span id="taskTitle" class="muted"></span></span>
+          <a class="link small" id="taskApiLink" target="_blank" rel="noreferrer noopener" style="display:none;">Open Task API</a>
+        </h3>
+
+        <div class="toolbar">
+          <div class="flex small">
+            <span id="totalCount" class="muted">Total: 0</span>
+          </div>
+          <div class="pagination">
+            <button class="btn" id="prevPage">Prev</button>
+            <span class="small muted" id="pageInfo">Page 1</span>
+            <button class="btn" id="nextPage">Next</button>
+            <select id="pageSize" title="Count per page">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="overflow:auto;">
+          <table id="execTable">
+            <thead>
+              <tr>
+                <th style="width:120px;">Created At</th>
+                <th style="width:110px;">Status</th>
+                <th style="width:90px;">Code</th>
+                <th>Response (truncated)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Success / Fail Trend</h3>
+        <canvas id="trendChart" height="140"></canvas>
+        <div class="hint">Aggregated by day from the executions shown (plus those already loaded via pagination).</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Storage & Auth Headers ----
+    function saveCreds(sid, tok) {
+      localStorage.setItem('service_id', sid || '');
+      localStorage.setItem('token', tok || '');
+    }
+    function loadCreds() {
+      return {
+        service_id: localStorage.getItem('service_id') || '',
+        token: localStorage.getItem('token') || ''
+      };
+    }
+    function authHeaders() {
+      const { service_id, token } = loadCreds();
+      return { 'service_id': service_id, 'token': token };
+    }
+
+    // ---- Elements ----
+    const elServiceId = document.getElementById('service_id');
+    const elToken = document.getElementById('token');
+    const elBtnLogin = document.getElementById('btn-login');
+    const elBtnLogout = document.getElementById('btn-logout');
+    const elTasks = document.getElementById('tasks');
+    const elRefreshTasks = document.getElementById('btn-refresh-tasks');
+    const elExecTbody = document.querySelector('#execTable tbody');
+    const elTotal = document.getElementById('totalCount');
+    const elTaskTitle = document.getElementById('taskTitle');
+    const elTaskApiLink = document.getElementById('taskApiLink');
+    const elPrev = document.getElementById('prevPage');
+    const elNext = document.getElementById('nextPage');
+    const elPageInfo = document.getElementById('pageInfo');
+    const elPageSize = document.getElementById('pageSize');
+
+    // ---- State ----
+    let tasks = [];
+    let currentTask = null;
+    let pageNumber = 0;
+    let pageCount = 10;
+    let totalCount = 0;
+    let trendChart = null;
+    let trendData = []; // accumulate across pages
+
+    // ---- Helpers ----
+    function fmtDate(s) {
+      try {
+        const d = new Date(s);
+        if (isNaN(d)) return s || '';
+        return d.toLocaleString();
+      } catch { return s || ''; }
+    }
+    function statusClass(s) {
+      const v = (s || '').toLowerCase();
+      if (v === 'completed' || v === 'success' || v === 'ok') return 'ok';
+      if (v === 'started' || v === 'running') return 'started';
+      if (v === 'failed' || v === 'error') return 'fail';
+      return 'warn';
+    }
+    function truncate(str, n = 500) {
+      if (!str) return '';
+      return str.length > n ? str.slice(0, n) + '…' : str;
+    }
+
+    // ---- API Calls ----
+    async function fetchJSON(url, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...authHeaders(), ...(opts.headers || {}) };
+      const res = await fetch(url, { ...opts, headers });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { const j = await res.json(); if (j && j.error) msg += ` - ${j.error}`; } catch {}
+        throw new Error(msg);
+      }
+      return res.json();
+    }
+
+    async function loadTasks() {
+      const creds = loadCreds();
+      if (!creds.service_id || !creds.token) {
+        elTasks.innerHTML = `<div class="muted" style="padding:12px;">Enter Service ID & Token, then click <b>Save & Load</b>.</div>`;
+        return;
+      }
+      elTasks.innerHTML = `<div class="muted" style="padding:12px;">Loading…</div>`;
+      try {
+        const data = await fetchJSON('/tasks');
+        tasks = Array.isArray(data) ? data : [];
+        renderTasks();
+      } catch (e) {
+        elTasks.innerHTML = `<div class="muted" style="padding:12px;">${e.message}</div>`;
+      }
+    }
+
+    async function loadExecutions(taskId, reset = true) {
+      if (!taskId) return;
+      if (reset) {
+        pageNumber = 0;
+        trendData = []; // reset trend accumulation for a fresh view
+      }
+      const url = `/tasks/${encodeURIComponent(taskId)}/executions?pageNumber=${pageNumber}&count=${pageCount}`;
+      try {
+        const j = await fetchJSON(url);
+        const items = Array.isArray(j.records) ? j.records : [];
+        totalCount = Number(j.total_count || 0);
+        renderExecutions(items, { append: !reset });
+        updateTrend(items, { append: !reset });
+        updatePager();
+        elTotal.textContent = `Total: ${totalCount}`;
+        elTaskApiLink.style.display = 'inline';
+        elTaskApiLink.href = url;
+      } catch (e) {
+        elExecTbody.innerHTML = `<tr><td colspan="4" class="muted">${e.message}</td></tr>`;
+        elTotal.textContent = 'Total: 0';
+      }
+    }
+
+    // ---- Renderers ----
+    function renderTasks() {
+      if (tasks.length === 0) {
+        elTasks.innerHTML = `<div class="muted" style="padding:12px;">No tasks found for this service.</div>`;
+        currentTask = null;
+        elTaskTitle.textContent = '';
+        elExecTbody.innerHTML = '';
+        if (trendChart) trendChart.destroy();
+        return;
+      }
+      const rows = tasks.map(t => {
+        const sel = currentTask && currentTask.id === (t.id || t.ID);
+        return `
+          <div class="task-item ${sel ? 'active' : ''}" data-id="${t.id || t.ID}">
+            <div class="task-name">${escapeHTML(t.name || t.Name || '(no name)')}</div>
+            <div class="task-sub">${escapeHTML(t.method || t.Method || '')} · ${escapeHTML(t.url || t.URL || '')}</div>
+            <div class="task-sub">Next: ${fmtDate(t.scheduled_at || t.ScheduledAt)}</div>
+          </div>
+        `;
+      }).join('');
+      elTasks.innerHTML = rows || '';
+      // attach clicks
+      [...elTasks.querySelectorAll('.task-item')].forEach(node => {
+        node.addEventListener('click', () => {
+          const id = node.getAttribute('data-id');
+          const task = tasks.find(x => (x.id || x.ID) === id);
+          if (!task) return;
+          currentTask = task;
+          elTaskTitle.textContent = `— ${(task.name || task.Name || '').slice(0, 80)}`;
+          renderTasks(); // re-mark selected
+          loadExecutions(id, true);
+        });
+      });
+      // auto-select first if none
+      if (!currentTask) {
+        currentTask = tasks[0];
+        elTaskTitle.textContent = `— ${(currentTask.name || currentTask.Name || '').slice(0, 80)}`;
+        const id = currentTask.id || currentTask.ID;
+        loadExecutions(id, true);
+      }
+    }
+
+    function renderExecutions(items, { append } = { append: false }) {
+      const html = items.map(ex => {
+        const created = fmtDate(ex.created_at || ex.CreatedAt);
+        const status = ex.status || ex.Status || '';
+        const code = ex.status_code != null ? ex.status_code : ex.StatusCode;
+        const cls = statusClass(status);
+        const response = (ex.response ?? ex.Response ?? '');
+        return `
+          <tr>
+            <td class="small">${created}</td>
+            <td><span class="pill ${cls}">${escapeHTML(String(status))}</span></td>
+            <td class="small">${code != null ? code : ''}</td>
+            <td><pre class="response">${escapeHTML(truncate(String(response)))}</pre></td>
+          </tr>
+        `;
+      }).join('');
+      if (append) elExecTbody.insertAdjacentHTML('beforeend', html);
+      else elExecTbody.innerHTML = html || `<tr><td colspan="4" class="muted">No executions.</td></tr>`;
+    }
+
+    function updatePager() {
+      const pageFrom = (pageNumber * pageCount) + 1;
+      const pageTo = Math.min((pageNumber + 1) * pageCount, totalCount || 0);
+      elPageInfo.textContent = totalCount ? `Page ${pageNumber + 1} • Rows ${pageFrom}-${pageTo}` : 'Page 1';
+      elPrev.disabled = pageNumber <= 0;
+      elNext.disabled = (pageNumber + 1) * pageCount >= (totalCount || 0);
+    }
+
+    // ---- Trend (Chart.js) ----
+    function updateTrend(items, { append }) {
+      // accumulate by created date (YYYY-MM-DD)
+      const acc = new Map(); // date -> { ok, fail }
+      const mergeOne = (ex) => {
+        const d = new Date(ex.created_at || ex.CreatedAt);
+        const key = isNaN(d) ? 'unknown' : d.toISOString().slice(0, 10);
+        const st = (ex.status || ex.Status || '').toLowerCase();
+        const bucket = acc.get(key) || { ok: 0, fail: 0 };
+        if (st === 'completed' || st === 'success' || st === 'ok') bucket.ok++;
+        else if (st === 'failed' || st === 'error') bucket.fail++;
+        else bucket.fail++; // treat other as non-success for visibility
+        acc.set(key, bucket);
+      };
+
+      // previous accumulated data (to persist across pages)
+      if (!append) trendData = [];
+      // prime existing
+      const carry = new Map(trendData);
+      // merge current items
+      items.forEach(mergeOne);
+      // fold acc into carry
+      acc.forEach((v, k) => {
+        const old = carry.get(k) || { ok: 0, fail: 0 };
+        carry.set(k, { ok: old.ok + v.ok, fail: old.fail + v.fail });
+      });
+      trendData = [...carry.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+      const labels = trendData.map(([d]) => d);
+      const ok = trendData.map(([_, v]) => v.ok);
+      const fail = trendData.map(([_, v]) => v.fail);
+
+      const ds = [
+        { label: 'Success', data: ok, borderWidth: 2, type: 'line', tension: .3 },
+        { label: 'Failed', data: fail, borderWidth: 2, type: 'line', tension: .3 },
+      ];
+
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: ds },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#cfd6e4' } } },
+          scales: {
+            x: { ticks: { color: '#98a3b7' }, grid: { color: '#1f2a44' } },
+            y: { ticks: { color: '#98a3b7' }, grid: { color: '#1f2a44' } },
+          },
+        }
+      });
+    }
+
+    // ---- Events ----
+    elBtnLogin.addEventListener('click', () => {
+      saveCreds(elServiceId.value.trim(), elToken.value.trim());
+      loadTasks();
+    });
+    elBtnLogout.addEventListener('click', () => {
+      saveCreds('', '');
+      elServiceId.value = '';
+      elToken.value = '';
+      tasks = [];
+      currentTask = null;
+      elTasks.innerHTML = '';
+      elExecTbody.innerHTML = '';
+      elTotal.textContent = 'Total: 0';
+      elTaskTitle.textContent = '';
+      if (trendChart) trendChart.destroy();
+    });
+    elRefreshTasks.addEventListener('click', loadTasks);
+    elPrev.addEventListener('click', () => {
+      if (pageNumber <= 0 || !currentTask) return;
+      pageNumber -= 1;
+      loadExecutions(currentTask.id || currentTask.ID, false);
+    });
+    elNext.addEventListener('click', () => {
+      if (!currentTask) return;
+      pageNumber += 1;
+      loadExecutions(currentTask.id || currentTask.ID, false);
+    });
+    elPageSize.addEventListener('change', () => {
+      pageCount = parseInt(elPageSize.value, 10) || 10;
+      if (pageCount < 1) pageCount = 10;
+      if (currentTask) loadExecutions(currentTask.id || currentTask.ID, true);
+    });
+
+    // ---- Utilities ----
+    function escapeHTML(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    // ---- Init ----
+    (function boot() {
+      const { service_id, token } = loadCreds();
+      if (service_id) elServiceId.value = service_id;
+      if (token) elToken.value = token;
+      if (service_id && token) loadTasks();
+    })();
+  </script>
 </body>
 </html>

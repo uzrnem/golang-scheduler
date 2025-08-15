@@ -15,7 +15,7 @@ import (
 )
 
 func StartScheduler() {
-  ticker := time.NewTicker(30 * time.Second)
+  ticker := time.NewTicker(10 * time.Minute)
   defer ticker.Stop()
 
   for {
@@ -88,9 +88,15 @@ func processTask(task models.Task) {
   // 2. Make HTTP request to task.URL with headers & payload
   statusCode, respBody := executeHTTPRequest(task)
 
+  status := "completed"
+  if statusCode >= 400 || statusCode == 0 {
+    log.Printf("Task %s failed with status code %d\n", task.ID, status)
+    status = "failed"
+  }
+
   // 3. Update execution with result
   if err := db.GetDB().Model(&exec).Updates(map[string]interface{}{
-    "status":      "completed",
+    "status":      status,
     "status_code": statusCode,
     "response":    respBody,
   }).Error; err != nil {
@@ -127,8 +133,12 @@ func executeHTTPRequest(task models.Task) (int, string) {
 
   resp, err := http.DefaultClient.Do(req)
   if err != nil {
+    statusCode := 0
+    if resp != nil {
+      statusCode = resp.StatusCode
+    }
     log.Println("HTTP request error:", err)
-    return 0, err.Error()
+    return statusCode, err.Error()
   }
   defer resp.Body.Close()
 

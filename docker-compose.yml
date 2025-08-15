@@ -71,6 +71,7 @@ services:
       - 8005:80
     networks:
       - tasks
+    profiles: ["dev"]
 
 networks:
   tasks:

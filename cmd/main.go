@@ -28,8 +28,8 @@ func main() {
   // API routes
   e.POST("/tasks", handlers.CreateTask)
   e.GET("/tasks", handlers.GetTasks)
-  e.GET("/tasks/:id", handlers.GetTaskByID)
-  e.GET("/tasks/:id/executions", handlers.GetTaskExecutions)
+  e.GET("/tasks/:taskId", handlers.GetTaskByID)
+  e.GET("/tasks/:taskId/executions", handlers.GetTaskExecutions)
 
   // Start server
   e.Logger.Fatal(e.Start(":8080"))
