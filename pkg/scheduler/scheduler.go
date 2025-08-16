@@ -30,7 +30,7 @@ func runScheduler() {
   log.Println("Scheduler triggered:", time.Now())
 
   var tasks []models.Task
-  if err := db.GetDB().Where("scheduled_at <= ?", time.Now()).Find(&tasks).Error; err != nil {
+  if err := db.GetDB().Where("scheduled_at <= ? and status = 'active'", time.Now()).Find(&tasks).Error; err != nil {
     log.Println("Error fetching tasks:", err)
     return
   }

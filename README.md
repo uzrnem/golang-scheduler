@@ -22,6 +22,7 @@ Instead of running many CronJobs, this service schedules tasks in Postgres and e
 ## API Schema
 
 1. Service Table
+
 | Column      | Type      | Notes |
 |-------------|-----------|-------|
 | id          | uuid (PK) | Default generated |
@@ -31,6 +32,7 @@ Instead of running many CronJobs, this service schedules tasks in Postgres and e
 | updated_at  | timestamp | Default now() |
 
 2. Task Table
+
 | Column        | Type              | Notes |
 |---------------|-------------------|-------|
 | id            | uuid (PK)         | Default generated |
@@ -40,6 +42,7 @@ Instead of running many CronJobs, this service schedules tasks in Postgres and e
 | header        | jsonb             | Request headers |
 | payload       | text              | Request body |
 | method        | string            | One of GET, POST, PUT, DELETE, OPTIONS |
+| status        | string            | active, paused, disabled |
 | scheduled_at  | timestamp         | Next run time |
 | frequency     | integer           | > 0 |
 | unit          | string            | hour or day |
@@ -47,6 +50,7 @@ Instead of running many CronJobs, this service schedules tasks in Postgres and e
 | updated_at    | timestamp         | Default now() |
 
 3. Execution Table
+
 | Column      | Type      | Notes |
 |-------------|-----------|-------|
 | id          | uuid (PK) | Default generated |
@@ -59,38 +63,80 @@ Instead of running many CronJobs, this service schedules tasks in Postgres and e
 ## Endpoints
 
 ### Create Task
-POST /tasks  
+POST /tasks
+
 Headers:
-  service_id: <uuid>  
-  token: <string>  
+
+  service_id: `uuid`
+
+  token: `string`
+
 Body:
+
+```json
 {
   "name": "Task Name",
   "url": "https://example.com",
   "header": { "Accept": "application/json" },
   "payload": "{}",
   "scheduled_at": "2025-08-14T12:00:00Z",  // or null
+  "status": "active",  // active, paused, disabled
   "frequency": 1,
   "unit": "hour",
   "method": "GET"
 }
+```
+
+### Update Task
+POST /tasks/{taskId}
+
+Headers:
+
+  service_id: `uuid`
+
+  token: `string`
+
+Body:
+
+```json
+{
+  "name": "Task Name",
+  "url": "https://example.com",
+  "header": { "Accept": "application/json" },
+  "payload": "{}",
+  "scheduled_at": "2025-08-14T12:00:00Z",  // or null
+  "status": "active",  // active, paused, disabled
+  "frequency": 1,
+  "unit": "hour",
+  "method": "GET"
+}
+```
 
 ### List Tasks
-GET /tasks  
+GET /tasks
+
 Headers:
+
   service_id: `uuid`
+
   token: `string`
 
 ### Get Task by ID
-GET /tasks/{taskId}  
+GET /tasks/{taskId}
+
 Headers:
+
   service_id: `uuid`
+
   token: `string`
 
 ### Get Task Executions (paginated)
-GET /tasks/{taskId}/executions?pageNumber=0&count=10  
+GET /tasks/{taskId}/executions?pageNumber=0&count=10
+
 Headers:
+
   service_id: `uuid`
+
   token: `string`
 
 ## Scheduler Behavior

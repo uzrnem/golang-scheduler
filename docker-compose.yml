@@ -1,5 +1,3 @@
-version: '3.7'
-
 services:
   # Dev profile: Use Golang container for live code mounting
   scheduler:
@@ -24,7 +22,8 @@ services:
 
   # Test profile: Build Golang project as a Docker image
   scheduler-service:
-    build: .
+    image: uzrnem/scheduler:0.0.1 # docker compose --profile test up
+    # build: . # docker compose --profile test up --build
     container_name: scheduler-service
     depends_on:
       - postgres

@@ -30,13 +30,11 @@ func validateService(c echo.Context) (*models.Service, error) {
   if err != nil {
     return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid service_id")
   }
-  fmt.Println("Validating service with ID:", serviceID)
 
   var service models.Service
   if err := db.GetDB().First(&service, "id = ? AND token = ?", serviceID, token).Error; err != nil {
     return nil, echo.NewHTTPError(http.StatusUnauthorized, "invalid service credentials")
   }
-  fmt.Println("Validated service:", service.ID)
   return &service, nil
 }
 
@@ -52,8 +50,9 @@ func CreateTask(c echo.Context) error {
     fmt.Println("Error creating task:", err)
     return echo.NewHTTPError(http.StatusBadRequest, "invalid input")
   }
-  fmt.Println("Creating task for req:", req)
-
+  if req.Status != "active" && req.Status != "paused" && req.Status != "disabled" {
+    return echo.NewHTTPError(http.StatusBadRequest, "status must be 'active', 'paused', or 'disabled'")
+  }
   if req.Frequency <= 0 {
     return echo.NewHTTPError(http.StatusBadRequest, "frequency must be greater than zero")
   }
@@ -93,10 +92,70 @@ func GetTasks(c echo.Context) error {
   }
 
   var tasks []models.Task
-  if err := db.GetDB().Where("service_id = ?", service.ID).Find(&tasks).Error; err != nil {
+  if err := db.GetDB().Where("service_id = ?", service.ID).Order("created_at DESC").Find(&tasks).Error; err != nil {
     return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
   }
   return c.JSON(http.StatusOK, tasks)
+}
+
+func UpdateTaskByID(c echo.Context) error {
+  service, err := validateService(c)
+  if err != nil {
+    return err
+  }
+
+  taskID, err := uuid.Parse(c.Param("taskId"))
+  if err != nil {
+    return echo.NewHTTPError(http.StatusBadRequest, "invalid taskId")
+  }
+
+  var req models.Task
+  if err := c.Bind(&req); err != nil {
+    fmt.Println("Error creating task:", err)
+    return echo.NewHTTPError(http.StatusBadRequest, "invalid input")
+  }
+
+  if req.Status != "active" && req.Status != "paused" && req.Status != "disabled" {
+    return echo.NewHTTPError(http.StatusBadRequest, "status must be 'active', 'paused', or 'disabled'")
+  }
+
+  // Validate frequency and unit
+  if req.Frequency <= 0 {
+    return echo.NewHTTPError(http.StatusBadRequest, "frequency must be greater than zero")
+  }
+  if req.Unit != "hour" && req.Unit != "day" {
+    return echo.NewHTTPError(http.StatusBadRequest, "unit must be 'hour' or 'day'")
+  }
+  
+  req.Method = strings.ToUpper(req.Method)
+  if !validMethods[req.Method] {
+    return echo.NewHTTPError(http.StatusBadRequest, "invalid method, allowed: GET, POST, DELETE, PUT, OPTIONS")
+  }
+
+  // Update timestamps
+  req.UpdatedAt = time.Now()
+
+  // If ScheduledAt is null, set based on frequency
+  if req.ScheduledAt.IsZero() {
+    if req.Unit == "hour" {
+      req.ScheduledAt = time.Now().Add(time.Duration(req.Frequency) * time.Hour)
+    } else {
+      req.ScheduledAt = time.Now().Add(time.Duration(req.Frequency) * 24 * time.Hour)
+    }
+  }
+
+  // Update task in database
+  if err := db.GetDB().Model(&models.Task{}).Where("id = ? AND service_id = ?", taskID, service.ID).Updates(req).Error; err != nil {
+    return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+  }
+  
+  // Fetch updated task
+  var updatedTask models.Task
+  if err := db.GetDB().First(&updatedTask, "id = ? AND service_id = ?", taskID, service.ID).Error; err != nil {
+    return echo.NewHTTPError(http.StatusNotFound, "task not found")
+  }
+  
+  return c.JSON(http.StatusOK, updatedTask)
 }
 
 // GET /tasks/:taskId

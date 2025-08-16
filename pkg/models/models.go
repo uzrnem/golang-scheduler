@@ -28,6 +28,7 @@ type Task struct {
   ScheduledAt time.Time         `json:"scheduled_at"`
   Frequency   int               `json:"frequency"`
   Unit        string            `json:"unit"` // "hour" or "day"
+  Status      string            `json:"status"` // "active", "paused", "disabled"
   CreatedAt   time.Time         `json:"created_at"`
   UpdatedAt   time.Time         `json:"updated_at"`
 }

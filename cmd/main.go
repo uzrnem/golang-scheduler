@@ -29,6 +29,7 @@ func main() {
   e.POST("/tasks", handlers.CreateTask)
   e.GET("/tasks", handlers.GetTasks)
   e.GET("/tasks/:taskId", handlers.GetTaskByID)
+  e.PUT("/tasks/:taskId", handlers.UpdateTaskByID)
   e.GET("/tasks/:taskId/executions", handlers.GetTaskExecutions)
 
   // Start server

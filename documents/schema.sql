@@ -25,6 +25,8 @@ CREATE TABLE tasks (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+ALTER TABLE tasks
+    ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'disabled'));
 -- ALTER TABLE tasks ALTER COLUMN header TYPE jsonb USING header::jsonb;
 
 
